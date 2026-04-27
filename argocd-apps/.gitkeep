@@ -1,0 +1,8 @@
+# ArgoCD Applications Directory
+
+This directory contains ArgoCD Application manifests for service instances.
+Each instance gets its own Application YAML file.
+
+This .gitkeep file prevents the directory from being empty, which would
+trigger ArgoCD's safety mechanism that blocks auto-sync when all resources
+would be deleted.

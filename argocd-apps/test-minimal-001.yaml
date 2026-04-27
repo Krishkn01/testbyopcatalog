@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: test-minimal-001
+  namespace: argocd
+  labels:
+    app: sccat-fhir-healthcare
+    service-type: sccat-fhir-healthcare
+    instance: test-minimal-001
+    cluster: kubernetes.default.svc
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  annotations:
+    cluster-url: https://kubernetes.default.svc
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:Krishkn01/testbyopcatalog.git
+    targetRevision: HEAD
+    path: instances/test-minimal-001
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: test-minimal-001
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
