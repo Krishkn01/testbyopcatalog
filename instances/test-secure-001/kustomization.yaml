@@ -1,0 +1,88 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: fhir-secure
+resources:
+- https://github.com/Krishkn01/testbyopcatalog//services/sccat-fhir-healthcare/v1/manifests?ref=main
+namePrefix: test-secure-001-
+commonLabels:
+  app.kubernetes.io/instance: test-secure-001
+  app.kubernetes.io/managed-by: sovereign-core
+  environment: dev
+patches:
+- target:
+    kind: StatefulSet
+    name: postgres
+  patch: "- op: replace\n  path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage\n\
+    \  value: 10Gi\n- op: replace\n  path: /spec/template/spec/containers/0/resources/limits/memory\n\
+    \  value: 1Gi\n- op: replace\n  path: /spec/template/spec/containers/0/env\n \
+    \ value:\n  - name: POSTGRES_DB\n    valueFrom:\n      secretKeyRef:\n       \
+    \ name: fhir-secure-secret\n        key: postgres-db\n  - name: POSTGRES_USER\n\
+    \    valueFrom:\n      secretKeyRef:\n        name: fhir-secure-secret\n     \
+    \   key: postgres-user\n  - name: POSTGRES_PASSWORD\n    valueFrom:\n      secretKeyRef:\n\
+    \        name: fhir-secure-secret\n        key: postgres-password"
+- target:
+    kind: Deployment
+    name: fhir
+  patch: "- op: replace\n  path: /spec/replicas\n  value: 2\n- op: replace\n  path:\
+    \ /spec/template/spec/containers/0/resources/limits/memory\n  value: 2Gi\n- op:\
+    \ replace\n  path: /spec/template/spec/containers/0/resources/limits/cpu\n  value:\
+    \ \"2\"\n- op: replace\n  path: /spec/template/spec/containers/0/env\n  value:\n\
+    \  - name: spring.datasource.url\n    value: jdbc:postgresql://test-secure-001-postgres:5432/fhirdb\n\
+    \  - name: spring.datasource.username\n    valueFrom:\n      secretKeyRef:\n \
+    \       name: fhir-secure-secret\n        key: postgres-user\n  - name: spring.datasource.password\n\
+    \    valueFrom:\n      secretKeyRef:\n        name: fhir-secure-secret\n     \
+    \   key: postgres-password\n  - name: spring.datasource.driverClassName\n    value:\
+    \ org.postgresql.Driver\n  - name: hapi.fhir.fhir_version\n    value: R5\n  -\
+    \ name: hapi.fhir.validation.enabled\n    value: \"true\"\n  - name: hapi.fhir.narrative_enabled\n\
+    \    value: \"true\"\n  - name: hapi.fhir.security.enabled\n    value: \"true\"\
+    \n  - name: hapi.fhir.security.oauth2.issuer_uri\n    value: http://test-secure-001-keycloak:8180/realms/fhir-healthcare"
+- target:
+    kind: Deployment
+    name: dashboard
+  patch: "- op: replace\n  path: /spec/replicas\n  value: 2\n- op: replace\n  path:\
+    \ /spec/template/spec/containers/0/env\n  value:\n  - name: REACT_APP_FHIR_SERVER_URL\n\
+    \    value: http://test-secure-001-fhir:8080/fhir\n  - name: REACT_APP_KEYCLOAK_ENABLED\n\
+    \    value: \"true\"\n  - name: REACT_APP_KEYCLOAK_URL\n    value: http://test-secure-001-keycloak:8180\n\
+    \  - name: REACT_APP_KEYCLOAK_REALM\n    value: fhir-healthcare\n  - name: REACT_APP_KEYCLOAK_CLIENT_ID\n\
+    \    value: fhir-dashboard\n  - name: REACT_APP_WEBMETHODS_ENABLED\n    value:\
+    \ \"true\""
+- target:
+    kind: Deployment
+    name: metering-collector
+  patch: "- op: replace\n  path: /spec/template/spec/containers/0/env\n  value:\n\
+    \  - name: METERING_DOMAIN\n    value: \"https://xpm.apps.cluster.local\"\n  -\
+    \ name: METERING_TOKEN\n    valueFrom:\n      secretKeyRef:\n        name: metering-credentials\n\
+    \        key: metering-token\n        optional: true\n  - name: PRODUCT_ID\n \
+    \   value: \"sccat-fhir-healthcare\"\n  - name: INSTANCE_ID\n    value: \"test-secure-001\"\
+    \n  - name: SUBACCOUNT_ID\n    valueFrom:\n      secretKeyRef:\n        name:\
+    \ metering-credentials\n        key: subaccount-id\n        optional: true\n \
+    \ - name: FHIR_SERVER_URL\n    value: \"http://test-secure-001-fhir:8080\"\n \
+    \ - name: POSTGRES_HOST\n    value: \"test-secure-001-postgres\"\n  - name: POSTGRES_PORT\n\
+    \    value: \"5432\"\n  - name: POSTGRES_DB\n    valueFrom:\n      secretKeyRef:\n\
+    \        name: fhir-secure-secret\n        key: postgres-db\n  - name: POSTGRES_USER\n\
+    \    valueFrom:\n      secretKeyRef:\n        name: fhir-secure-secret\n     \
+    \   key: postgres-user\n  - name: POSTGRES_PASSWORD\n    valueFrom:\n      secretKeyRef:\n\
+    \        name: fhir-secure-secret\n        key: postgres-password\n  - name: COLLECTION_INTERVAL\n\
+    \    value: \"3600000\"\n  - name: SUBMISSION_INTERVAL\n    value: \"3600000\""
+- target:
+    kind: Deployment
+    name: keycloak
+  patch: "- op: replace\n  path: /spec/template/spec/containers/0/env\n  value:\n\
+    \  - name: KEYCLOAK_ADMIN\n    valueFrom:\n      secretKeyRef:\n        name:\
+    \ keycloak-secure-secret\n        key: admin-user\n  - name: KEYCLOAK_ADMIN_PASSWORD\n\
+    \    valueFrom:\n      secretKeyRef:\n        name: keycloak-secure-secret\n \
+    \       key: admin-password\n  - name: KC_DB\n    value: postgres\n  - name: KC_DB_URL\n\
+    \    value: jdbc:postgresql://test-secure-001-postgres:5432/keycloakdb\n  - name:\
+    \ KC_DB_USERNAME\n    valueFrom:\n      secretKeyRef:\n        name: keycloak-secure-secret\n\
+    \        key: db-user\n        optional: true\n  - name: KC_DB_PASSWORD\n    valueFrom:\n\
+    \      secretKeyRef:\n        name: keycloak-secure-secret\n        key: db-password\n\
+    \        optional: true\n  - name: KC_HEALTH_ENABLED\n    value: \"true\"\n  -\
+    \ name: KC_METRICS_ENABLED\n    value: \"true\"\n  - name: KC_LOG_LEVEL\n    value:\
+    \ INFO\n  - name: JAVA_OPTS_APPEND\n    value: \"-Djava.net.preferIPv4Stack=true\
+    \ -Xms512m -Xmx1024m\""
+- target:
+    kind: ConfigMap
+    name: fhir-config
+  patch: "- op: replace\n  path: /data/fhir.version\n  value: R5\n- op: replace\n\
+    \  path: /data/validation.enabled\n  value: \"true\"\n- op: replace\n  path: /data/narrative.enabled\n\
+    \  value: \"true\""
