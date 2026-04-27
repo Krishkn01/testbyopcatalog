@@ -77,24 +77,6 @@ spec:
         emptyDir: {}
 ---
 apiVersion: v1
-kind: Service
-metadata:
-  name: patient-dashboard
-  namespace: fhir-test
-  labels:
-    app: patient-dashboard
-    tier: frontend
-spec:
-  type: ClusterIP
-  ports:
-  - port: 80
-    targetPort: 8080
-    protocol: TCP
-    name: http
-  selector:
-    app: patient-dashboard
----
-apiVersion: v1
 kind: ConfigMap
 metadata:
   name: dashboard-config
