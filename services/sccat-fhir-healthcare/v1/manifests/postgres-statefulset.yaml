@@ -27,17 +27,17 @@ spec:
         - name: POSTGRES_DB
           valueFrom:
             secretKeyRef:
-              name: fhir-db-secret
+              name: fhir-minimal-secret
               key: postgres-db
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: fhir-db-secret
+              name: fhir-minimal-secret
               key: postgres-user
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: fhir-db-secret
+              name: fhir-minimal-secret
               key: postgres-password
         - name: PGDATA
           value: /var/lib/postgresql/data/pgdata
