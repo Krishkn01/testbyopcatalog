@@ -8,20 +8,20 @@ kind: Kustomization
 
 namespace: {{ namespace }}
 
-# Base manifests
+# Base manifests from GitHub repository
 resources:
-- ../../services/sccat-fhir-healthcare/v1/manifests/postgres-statefulset.yaml
-- ../../services/sccat-fhir-healthcare/v1/manifests/postgres-service.yaml
-- ../../services/sccat-fhir-healthcare/v1/manifests/fhir-deployment.yaml
-- ../../services/sccat-fhir-healthcare/v1/manifests/fhir-service.yaml
-- ../../services/sccat-fhir-healthcare/v1/manifests/fhir-configmap.yaml
-- ../../services/sccat-fhir-healthcare/v1/manifests/dashboard-deployment.yaml
-- ../../services/sccat-fhir-healthcare/v1/manifests/dashboard-service.yaml
-- ../../services/sccat-fhir-healthcare/v1/manifests/metering-sidecar-deployment.yaml
+- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/postgres-statefulset.yaml?ref=main
+- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/postgres-service.yaml?ref=main
+- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/fhir-deployment.yaml?ref=main
+- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/fhir-service.yaml?ref=main
+- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/fhir-configmap.yaml?ref=main
+- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/dashboard-deployment.yaml?ref=main
+- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/dashboard-service.yaml?ref=main
+- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/metering-sidecar-deployment.yaml?ref=main
 {% if enable_keycloak %}
-- ../../services/sccat-fhir-healthcare/v1/manifests/keycloak-deployment.yaml
-- ../../services/sccat-fhir-healthcare/v1/manifests/keycloak-service.yaml
-- ../../services/sccat-fhir-healthcare/v1/manifests/keycloak-configmap.yaml
+- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/keycloak-deployment.yaml?ref=main
+- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/keycloak-service.yaml?ref=main
+- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/keycloak-configmap.yaml?ref=main
 {% endif %}
 
 # Name prefix for all resources
