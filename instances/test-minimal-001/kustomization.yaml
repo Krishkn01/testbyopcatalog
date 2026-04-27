@@ -2,17 +2,17 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: fhir-minimal
 resources:
-- ../../../services/sccat-fhir-healthcare/v1/manifests/postgres-statefulset.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/postgres-service.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/fhir-deployment.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/fhir-service.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/fhir-configmap.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/dashboard-deployment.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/dashboard-service.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/metering-sidecar-deployment.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/keycloak-deployment.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/keycloak-service.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/keycloak-configmap.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/postgres-statefulset.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/postgres-service.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/fhir-deployment.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/fhir-service.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/fhir-configmap.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/dashboard-deployment.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/dashboard-service.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/metering-sidecar-deployment.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/keycloak-deployment.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/keycloak-service.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/keycloak-configmap.yaml
 namePrefix: test-minimal-001-
 commonLabels:
   app.kubernetes.io/instance: test-minimal-001

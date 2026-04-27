@@ -10,18 +10,18 @@ namespace: {{ namespace }}
 
 # Base manifests
 resources:
-- ../../../services/sccat-fhir-healthcare/v1/manifests/postgres-statefulset.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/postgres-service.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/fhir-deployment.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/fhir-service.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/fhir-configmap.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/dashboard-deployment.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/dashboard-service.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/metering-sidecar-deployment.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/postgres-statefulset.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/postgres-service.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/fhir-deployment.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/fhir-service.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/fhir-configmap.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/dashboard-deployment.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/dashboard-service.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/metering-sidecar-deployment.yaml
 {% if enable_keycloak %}
-- ../../../services/sccat-fhir-healthcare/v1/manifests/keycloak-deployment.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/keycloak-service.yaml
-- ../../../services/sccat-fhir-healthcare/v1/manifests/keycloak-configmap.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/keycloak-deployment.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/keycloak-service.yaml
+- ../../services/sccat-fhir-healthcare/v1/manifests/keycloak-configmap.yaml
 {% endif %}
 
 # Name prefix for all resources
