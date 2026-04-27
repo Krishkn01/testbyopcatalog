@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fhir-system
+  labels:
+    name: fhir-system
+    app.kubernetes.io/name: sccat-fhir-healthcare
+    app.kubernetes.io/managed-by: byop-broker
+
+# Made with Bob
