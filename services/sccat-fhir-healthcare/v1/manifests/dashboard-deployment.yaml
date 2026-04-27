@@ -2,11 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: patient-dashboard
-  namespace: fhir-test
   labels:
     app: patient-dashboard
-    tier: frontend
-    component: ui
+    component: frontend
 spec:
   replicas: 1
   selector:
@@ -16,8 +14,7 @@ spec:
     metadata:
       labels:
         app: patient-dashboard
-        tier: frontend
-        component: ui
+        component: frontend
     spec:
       containers:
       - name: dashboard
