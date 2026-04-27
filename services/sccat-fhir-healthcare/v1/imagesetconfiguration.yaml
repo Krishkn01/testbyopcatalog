@@ -1,0 +1,50 @@
+# ImageSetConfiguration for FHIR Healthcare Service
+# Used for mirroring container images to disconnected/air-gapped registries
+# Required for IBM Sovereign Core deployments
+
+kind: ImageSetConfiguration
+apiVersion: mirror.openshift.io/v1alpha2
+storageConfig:
+  local:
+    path: ./metadata
+  # For direct registry mirroring (uncomment and configure):
+  # registry:
+  #   imageURL: quay.io/ibm-sovereign/sccat-fhir-healthcare/mirror
+  #   skipTLS: false
+mirror:
+  additionalImages:
+    # HAPI FHIR Server
+    - name: quay.io/ibm-sovereign/sccat-fhir-healthcare/hapi-fhir-jpaserver:7.0.2
+    
+    # PostgreSQL Database
+    - name: quay.io/ibm-sovereign/sccat-fhir-healthcare/postgres:15-alpine
+    
+    # Keycloak Authentication
+    - name: quay.io/ibm-sovereign/sccat-fhir-healthcare/keycloak:23.0.0
+    
+    # Patient Dashboard (React Frontend)
+    - name: quay.io/ibm-sovereign/sccat-fhir-healthcare/patient-dashboard:1.0.0
+    
+    # Node.js API Service (Backend Gateway)
+    - name: quay.io/ibm-sovereign/sccat-fhir-healthcare/nodejs-api-service:1.0.0
+    
+    # Metering Collector (uses base Node.js image)
+    - name: docker.io/library/node:20-alpine
+    
+    # webMethods Integration Service
+    - name: quay.io/ibm-sovereign/sccat-fhir-healthcare/webmethods-service:1.0.0
+
+# Usage:
+# 1. Mirror images to disconnected registry:
+#    oc-mirror --config=imagesetconfiguration.yaml docker://registry.example.com
+#
+# 2. Apply mirrored images to cluster:
+#    oc apply -f ./oc-mirror-workspace/results-*/imageContentSourcePolicy.yaml
+#
+# 3. Update manifests to use mirrored registry:
+#    Update image references in manifests/ to point to registry.example.com
+#
+# For more information:
+# https://docs.openshift.com/container-platform/latest/installing/disconnected_install/installing-mirroring-disconnected.html
+
+# Made with Bob

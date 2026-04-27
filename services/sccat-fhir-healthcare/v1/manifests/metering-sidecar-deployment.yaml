@@ -1,0 +1,386 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metering-collector
+  labels:
+    app: metering-collector
+    component: metering
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metering-collector
+  template:
+    metadata:
+      labels:
+        app: metering-collector
+        component: metering
+    spec:
+      serviceAccountName: metering-collector
+      containers:
+      - name: metering-collector
+        image: node:20-alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          cat > /tmp/metering-collector.js << 'EOF'
+          const http = require('http');
+          const https = require('https');
+          
+          // Configuration from environment
+          const config = {
+            meteringDomain: process.env.METERING_DOMAIN || 'https://xpm.apps.cluster.local',
+            meteringToken: process.env.METERING_TOKEN,
+            productId: process.env.PRODUCT_ID || 'sccat-fhir-healthcare',
+            instanceId: process.env.INSTANCE_ID,
+            subaccountId: process.env.SUBACCOUNT_ID,
+            fhirServerUrl: process.env.FHIR_SERVER_URL || 'http://hapi-fhir-server:8080',
+            postgresHost: process.env.POSTGRES_HOST || 'fhir-postgres',
+            postgresPort: process.env.POSTGRES_PORT || '5432',
+            postgresDb: process.env.POSTGRES_DB || 'fhirdb',
+            postgresUser: process.env.POSTGRES_USER,
+            postgresPassword: process.env.POSTGRES_PASSWORD,
+            collectionInterval: parseInt(process.env.COLLECTION_INTERVAL || '3600000'), // 1 hour
+            submissionInterval: parseInt(process.env.SUBMISSION_INTERVAL || '3600000') // 1 hour
+          };
+          
+          // Metrics buffer
+          const metricsBuffer = {
+            fhir_api_calls: 0,
+            claims_processed: 0,
+            edi_transactions: 0,
+            fhir_resources_stored: 0,
+            storage_bytes: 0,
+            active_users: 0,
+            cql_validations: 0
+          };
+          
+          let lastCollectionTime = Date.now();
+          
+          // Build CRN
+          function buildCRN() {
+            return `crn:v1:ibm-sc:private:${config.productId}:earth-1:sub/${config.subaccountId}:${config.instanceId}::`;
+          }
+          
+          // Collect metrics from FHIR server
+          async function collectFHIRMetrics() {
+            try {
+              console.log('[Collector] Collecting FHIR metrics...');
+              
+              // Get FHIR server statistics
+              const statsUrl = `${config.fhirServerUrl}/fhir/metadata`;
+              const stats = await httpGet(statsUrl);
+              
+              // Count resources (simplified - in production, query actual counts)
+              const resourceTypes = ['Patient', 'Practitioner', 'Organization', 'Claim', 'ClaimResponse', 'Coverage'];
+              let totalResources = 0;
+              
+              for (const resourceType of resourceTypes) {
+                try {
+                  const searchUrl = `${config.fhirServerUrl}/fhir/${resourceType}?_summary=count`;
+                  const result = await httpGet(searchUrl);
+                  const count = result.total || 0;
+                  totalResources += count;
+                  
+                  if (resourceType === 'Claim') {
+                    metricsBuffer.claims_processed += count;
+                  }
+                } catch (err) {
+                  console.error(`[Collector] Error counting ${resourceType}:`, err.message);
+                }
+              }
+              
+              metricsBuffer.fhir_resources_stored = totalResources;
+              console.log(`[Collector] Total FHIR resources: ${totalResources}`);
+              
+            } catch (error) {
+              console.error('[Collector] Error collecting FHIR metrics:', error.message);
+            }
+          }
+          
+          // Collect database metrics
+          async function collectDatabaseMetrics() {
+            try {
+              console.log('[Collector] Collecting database metrics...');
+              
+              // In production, connect to PostgreSQL and query:
+              // SELECT pg_database_size('fhirdb') as size_bytes;
+              // For now, use estimated value
+              metricsBuffer.storage_bytes = metricsBuffer.fhir_resources_stored * 2048; // ~2KB per resource
+              
+              console.log(`[Collector] Estimated storage: ${metricsBuffer.storage_bytes} bytes`);
+            } catch (error) {
+              console.error('[Collector] Error collecting database metrics:', error.message);
+            }
+          }
+          
+          // Submit metrics to Sovereign Core
+          async function submitMetrics() {
+            if (!config.meteringToken) {
+              console.warn('[Submitter] No metering token configured, skipping submission');
+              return;
+            }
+            
+            try {
+              const now = Date.now();
+              const startTime = lastCollectionTime;
+              const endTime = now;
+              
+              const crn = buildCRN();
+              const resourceId = `${config.instanceId}-subscription`;
+              
+              // Build measured_usage array
+              const measured_usage = [];
+              
+              if (metricsBuffer.fhir_api_calls > 0) {
+                measured_usage.push({
+                  quantity: metricsBuffer.fhir_api_calls,
+                  measure: 'fhir_api_calls',
+                  meteringModel: 'cumulative'
+                });
+              }
+              
+              if (metricsBuffer.claims_processed > 0) {
+                measured_usage.push({
+                  quantity: metricsBuffer.claims_processed,
+                  measure: 'claims_processed',
+                  meteringModel: 'cumulative'
+                });
+              }
+              
+              if (metricsBuffer.edi_transactions > 0) {
+                measured_usage.push({
+                  quantity: metricsBuffer.edi_transactions,
+                  measure: 'edi_transactions',
+                  meteringModel: 'cumulative'
+                });
+              }
+              
+              if (metricsBuffer.fhir_resources_stored > 0) {
+                measured_usage.push({
+                  quantity: metricsBuffer.fhir_resources_stored,
+                  measure: 'fhir_resources_stored',
+                  meteringModel: 'high-watermark'
+                });
+              }
+              
+              if (metricsBuffer.storage_bytes > 0) {
+                measured_usage.push({
+                  quantity: metricsBuffer.storage_bytes,
+                  measure: 'storage_bytes',
+                  meteringModel: 'high-watermark'
+                });
+              }
+              
+              if (metricsBuffer.cql_validations > 0) {
+                measured_usage.push({
+                  quantity: metricsBuffer.cql_validations,
+                  measure: 'cql_validations',
+                  meteringModel: 'cumulative'
+                });
+              }
+              
+              if (measured_usage.length === 0) {
+                console.log('[Submitter] No metrics to submit');
+                return;
+              }
+              
+              const payload = [{
+                crn: crn,
+                meteringPlan: 'metered',
+                start: startTime,
+                end: endTime,
+                measured_usage: measured_usage
+              }];
+              
+              console.log('[Submitter] Submitting metrics:', JSON.stringify(payload, null, 2));
+              
+              const url = `${config.meteringDomain}/api/v1/metering/resources/${resourceId}/usage`;
+              const result = await httpPost(url, payload, {
+                'Authorization': `Bearer ${config.meteringToken}`,
+                'Content-Type': 'application/json'
+              });
+              
+              console.log('[Submitter] Metrics submitted successfully. Transaction ID:', result.transactionId);
+              
+              // Reset cumulative counters
+              metricsBuffer.fhir_api_calls = 0;
+              metricsBuffer.claims_processed = 0;
+              metricsBuffer.edi_transactions = 0;
+              metricsBuffer.cql_validations = 0;
+              
+              lastCollectionTime = now;
+              
+            } catch (error) {
+              console.error('[Submitter] Error submitting metrics:', error.message);
+            }
+          }
+          
+          // HTTP GET helper
+          function httpGet(url) {
+            return new Promise((resolve, reject) => {
+              const client = url.startsWith('https') ? https : http;
+              client.get(url, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                  try {
+                    resolve(JSON.parse(data));
+                  } catch (e) {
+                    resolve(data);
+                  }
+                });
+              }).on('error', reject);
+            });
+          }
+          
+          // HTTP POST helper
+          function httpPost(url, body, headers = {}) {
+            return new Promise((resolve, reject) => {
+              const urlObj = new URL(url);
+              const client = url.startsWith('https') ? https : http;
+              
+              const options = {
+                hostname: urlObj.hostname,
+                port: urlObj.port,
+                path: urlObj.pathname + urlObj.search,
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...headers
+                }
+              };
+              
+              const req = client.request(options, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                  if (res.statusCode >= 200 && res.statusCode < 300) {
+                    try {
+                      resolve(JSON.parse(data));
+                    } catch (e) {
+                      resolve(data);
+                    }
+                  } else {
+                    reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                  }
+                });
+              });
+              
+              req.on('error', reject);
+              req.write(JSON.stringify(body));
+              req.end();
+            });
+          }
+          
+          // Main collection loop
+          async function collectionLoop() {
+            console.log('[Collector] Starting metrics collection...');
+            await collectFHIRMetrics();
+            await collectDatabaseMetrics();
+            console.log('[Collector] Metrics collected:', metricsBuffer);
+          }
+          
+          // Main submission loop
+          async function submissionLoop() {
+            console.log('[Submitter] Starting metrics submission...');
+            await submitMetrics();
+          }
+          
+          // Start collectors
+          console.log('=== FHIR Healthcare Metering Collector ===');
+          console.log('Product ID:', config.productId);
+          console.log('Instance ID:', config.instanceId);
+          console.log('Collection Interval:', config.collectionInterval, 'ms');
+          console.log('Submission Interval:', config.submissionInterval, 'ms');
+          console.log('==========================================');
+          
+          // Initial collection
+          collectionLoop();
+          
+          // Schedule periodic collection
+          setInterval(collectionLoop, config.collectionInterval);
+          
+          // Schedule periodic submission
+          setInterval(submissionLoop, config.submissionInterval);
+          
+          // Keep process alive
+          process.on('SIGTERM', () => {
+            console.log('Received SIGTERM, shutting down gracefully...');
+            process.exit(0);
+          });
+          EOF
+          
+          node /tmp/metering-collector.js
+        env:
+        - name: METERING_DOMAIN
+          value: "https://xpm.apps.cluster.local"
+        - name: METERING_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: metering-credentials
+              key: metering-token
+              optional: true
+        - name: PRODUCT_ID
+          value: "sccat-fhir-healthcare"
+        - name: INSTANCE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['app.kubernetes.io/instance']
+        - name: SUBACCOUNT_ID
+          valueFrom:
+            secretKeyRef:
+              name: metering-credentials
+              key: subaccount-id
+              optional: true
+        - name: FHIR_SERVER_URL
+          value: "http://hapi-fhir-server:8080"
+        - name: POSTGRES_HOST
+          value: "fhir-postgres"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: fhir-db-secret
+              key: postgres-db
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: fhir-db-secret
+              key: postgres-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fhir-db-secret
+              key: postgres-password
+        - name: COLLECTION_INTERVAL
+          value: "3600000"  # 1 hour
+        - name: SUBMISSION_INTERVAL
+          value: "3600000"  # 1 hour
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: metering-collector
+  labels:
+    app: metering-collector
+    component: metering
+
+# Made with Bob

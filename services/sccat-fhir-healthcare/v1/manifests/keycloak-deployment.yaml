@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  labels:
+    app: keycloak
+    component: authentication
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+        component: authentication
+    spec:
+      serviceAccountName: keycloak
+      containers:
+      - name: keycloak
+        image: quay.io/keycloak/keycloak:23.0
+        args:
+        - start-dev
+        - --http-port=8180
+        - --hostname-strict=false
+        - --hostname-strict-https=false
+        - --db=postgres
+        - --import-realm
+        env:
+        - name: KEYCLOAK_ADMIN
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-credentials
+              key: admin-user
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-credentials
+              key: admin-password
+        - name: KC_DB
+          value: postgres
+        - name: KC_DB_URL
+          value: jdbc:postgresql://fhir-postgres:5432/keycloakdb
+        - name: KC_DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-credentials
+              key: db-user
+              optional: true
+        - name: KC_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-credentials
+              key: db-password
+              optional: true
+        - name: KC_HEALTH_ENABLED
+          value: "true"
+        - name: KC_METRICS_ENABLED
+          value: "true"
+        - name: KC_LOG_LEVEL
+          value: INFO
+        - name: JAVA_OPTS_APPEND
+          value: "-Djava.net.preferIPv4Stack=true -Xms1g -Xmx2g"
+        ports:
+        - name: http
+          containerPort: 8180
+          protocol: TCP
+        - name: https
+          containerPort: 8443
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /health/live
+            port: 8180
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8180
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8180
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 5
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "1"
+          limits:
+            memory: "2Gi"
+            cpu: "2"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: keycloak-config
+          mountPath: /opt/keycloak/data/import
+          readOnly: true
+      volumes:
+      - name: keycloak-config
+        configMap:
+          name: keycloak-config
+          optional: true
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keycloak
+  labels:
+    app: keycloak
+    component: authentication
+
+# Made with Bob

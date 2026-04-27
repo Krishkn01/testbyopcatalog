@@ -1,0 +1,273 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sample-data-loader-script
+  labels:
+    app: sample-data-loader
+data:
+  load-sample-data.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "========================================="
+    echo "FHIR Sample Data Loader"
+    echo "========================================="
+    echo ""
+    
+    FHIR_URL="${FHIR_SERVER_URL:-http://hapi-fhir-server:8080/fhir}"
+    MAX_RETRIES=30
+    RETRY_DELAY=10
+    
+    # Wait for FHIR server to be ready
+    echo "Waiting for FHIR server to be ready..."
+    for i in $(seq 1 $MAX_RETRIES); do
+      if curl -sf "$FHIR_URL/metadata" > /dev/null 2>&1; then
+        echo "FHIR server is ready!"
+        break
+      fi
+      echo "Attempt $i/$MAX_RETRIES: FHIR server not ready, waiting ${RETRY_DELAY}s..."
+      sleep $RETRY_DELAY
+    done
+    
+    # Check if server is accessible
+    if ! curl -sf "$FHIR_URL/metadata" > /dev/null 2>&1; then
+      echo "ERROR: FHIR server not accessible after $MAX_RETRIES attempts"
+      exit 1
+    fi
+    
+    echo ""
+    echo "Checking if sample data already exists..."
+    PATIENT_COUNT=$(curl -sf "$FHIR_URL/Patient?_summary=count" | grep -o '"total":[0-9]*' | grep -o '[0-9]*' || echo "0")
+    echo "Found $PATIENT_COUNT existing patients"
+    
+    if [ "$PATIENT_COUNT" -gt 0 ] && [ "${FORCE_RELOAD:-false}" != "true" ]; then
+      echo "Sample data already exists. Skipping load."
+      echo "Set FORCE_RELOAD=true to reload anyway."
+      exit 0
+    fi
+    
+    echo ""
+    echo "Loading sample patients..."
+    
+    # Patient 1: Emily Rodriguez
+    echo "Creating patient: Emily Rodriguez..."
+    curl -sf -X POST "$FHIR_URL/Patient" \
+      -H "Content-Type: application/fhir+json" \
+      -d '{
+        "resourceType": "Patient",
+        "identifier": [{"system": "http://hospital.example.org/patients", "value": "PT-2024-001"}],
+        "active": true,
+        "name": [{"use": "official", "family": "Rodriguez", "given": ["Emily", "Marie"]}],
+        "gender": "female",
+        "birthDate": "1985-03-15",
+        "address": [{"use": "home", "line": ["456 Oak Avenue"], "city": "Boston", "state": "MA", "postalCode": "02101", "country": "USA"}],
+        "telecom": [
+          {"system": "phone", "value": "(617) 555-0123", "use": "mobile"},
+          {"system": "email", "value": "emily.rodriguez@email.com"}
+        ]
+      }' > /tmp/patient1.json
+    
+    PATIENT1_ID=$(cat /tmp/patient1.json | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    echo "  Created patient with ID: $PATIENT1_ID"
+    
+    # Claim for Emily
+    echo "Creating claim for Emily Rodriguez..."
+    curl -sf -X POST "$FHIR_URL/Claim" \
+      -H "Content-Type: application/fhir+json" \
+      -d "{
+        \"resourceType\": \"Claim\",
+        \"status\": \"active\",
+        \"type\": {\"coding\": [{\"system\": \"http://terminology.hl7.org/CodeSystem/claim-type\", \"code\": \"institutional\"}]},
+        \"use\": \"claim\",
+        \"patient\": {\"reference\": \"Patient/$PATIENT1_ID\"},
+        \"created\": \"2024-01-15\",
+        \"insurer\": {\"display\": \"Aetna Health Insurance\"},
+        \"provider\": {\"display\": \"City General Hospital\"},
+        \"priority\": {\"coding\": [{\"system\": \"http://terminology.hl7.org/CodeSystem/processpriority\", \"code\": \"normal\"}]},
+        \"diagnosis\": [{\"sequence\": 1, \"diagnosisCodeableConcept\": {\"coding\": [{\"system\": \"http://hl7.org/fhir/sid/icd-10\", \"code\": \"J18.9\", \"display\": \"Pneumonia\"}]}}],
+        \"item\": [{\"sequence\": 1, \"productOrService\": {\"coding\": [{\"system\": \"http://www.ama-assn.org/go/cpt\", \"code\": \"99285\", \"display\": \"Emergency Visit\"}]}, \"unitPrice\": {\"value\": 450.00, \"currency\": \"USD\"}, \"net\": {\"value\": 450.00, \"currency\": \"USD\"}}],
+        \"total\": {\"value\": 450.00, \"currency\": \"USD\"}
+      }" > /dev/null
+    echo "  Created claim for Emily Rodriguez"
+    
+    # Patient 2: Michael Chen
+    echo "Creating patient: Michael Chen..."
+    curl -sf -X POST "$FHIR_URL/Patient" \
+      -H "Content-Type: application/fhir+json" \
+      -d '{
+        "resourceType": "Patient",
+        "identifier": [{"system": "http://hospital.example.org/patients", "value": "PT-2024-002"}],
+        "active": true,
+        "name": [{"use": "official", "family": "Chen", "given": ["Michael", "James"]}],
+        "gender": "male",
+        "birthDate": "1978-11-22",
+        "address": [{"use": "home", "line": ["789 Pine Street"], "city": "San Francisco", "state": "CA", "postalCode": "94102", "country": "USA"}],
+        "telecom": [{"system": "phone", "value": "(415) 555-0456", "use": "mobile"}]
+      }' > /tmp/patient2.json
+    
+    PATIENT2_ID=$(cat /tmp/patient2.json | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    echo "  Created patient with ID: $PATIENT2_ID"
+    
+    # Claim for Michael
+    echo "Creating claim for Michael Chen..."
+    curl -sf -X POST "$FHIR_URL/Claim" \
+      -H "Content-Type: application/fhir+json" \
+      -d "{
+        \"resourceType\": \"Claim\",
+        \"status\": \"active\",
+        \"type\": {\"coding\": [{\"system\": \"http://terminology.hl7.org/CodeSystem/claim-type\", \"code\": \"professional\"}]},
+        \"use\": \"claim\",
+        \"patient\": {\"reference\": \"Patient/$PATIENT2_ID\"},
+        \"created\": \"2024-01-20\",
+        \"insurer\": {\"display\": \"Blue Cross Blue Shield\"},
+        \"provider\": {\"display\": \"Bay Area Medical Center\"},
+        \"priority\": {\"coding\": [{\"system\": \"http://terminology.hl7.org/CodeSystem/processpriority\", \"code\": \"normal\"}]},
+        \"diagnosis\": [{\"sequence\": 1, \"diagnosisCodeableConcept\": {\"coding\": [{\"system\": \"http://hl7.org/fhir/sid/icd-10\", \"code\": \"E11.9\", \"display\": \"Type 2 diabetes\"}]}}],
+        \"item\": [{\"sequence\": 1, \"productOrService\": {\"coding\": [{\"system\": \"http://www.ama-assn.org/go/cpt\", \"code\": \"99214\", \"display\": \"Office Visit\"}]}, \"unitPrice\": {\"value\": 180.00, \"currency\": \"USD\"}, \"net\": {\"value\": 180.00, \"currency\": \"USD\"}}],
+        \"total\": {\"value\": 180.00, \"currency\": \"USD\"}
+      }" > /dev/null
+    echo "  Created claim for Michael Chen"
+    
+    # Patient 3: Sarah Johnson
+    echo "Creating patient: Sarah Johnson..."
+    curl -sf -X POST "$FHIR_URL/Patient" \
+      -H "Content-Type: application/fhir+json" \
+      -d '{
+        "resourceType": "Patient",
+        "identifier": [{"system": "http://hospital.example.org/patients", "value": "PT-2024-003"}],
+        "active": true,
+        "name": [{"use": "official", "family": "Johnson", "given": ["Sarah", "Elizabeth"]}],
+        "gender": "female",
+        "birthDate": "1992-07-08",
+        "address": [{"use": "home", "line": ["321 Maple Drive"], "city": "Chicago", "state": "IL", "postalCode": "60601", "country": "USA"}],
+        "telecom": [{"system": "phone", "value": "(312) 555-0789", "use": "mobile"}]
+      }' > /tmp/patient3.json
+    
+    PATIENT3_ID=$(cat /tmp/patient3.json | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    echo "  Created patient with ID: $PATIENT3_ID"
+    
+    # Claim for Sarah
+    echo "Creating claim for Sarah Johnson..."
+    curl -sf -X POST "$FHIR_URL/Claim" \
+      -H "Content-Type: application/fhir+json" \
+      -d "{
+        \"resourceType\": \"Claim\",
+        \"status\": \"active\",
+        \"type\": {\"coding\": [{\"system\": \"http://terminology.hl7.org/CodeSystem/claim-type\", \"code\": \"pharmacy\"}]},
+        \"use\": \"claim\",
+        \"patient\": {\"reference\": \"Patient/$PATIENT3_ID\"},
+        \"created\": \"2024-02-01\",
+        \"insurer\": {\"display\": \"UnitedHealthcare\"},
+        \"provider\": {\"display\": \"Walgreens Pharmacy\"},
+        \"priority\": {\"coding\": [{\"system\": \"http://terminology.hl7.org/CodeSystem/processpriority\", \"code\": \"normal\"}]},
+        \"item\": [{\"sequence\": 1, \"productOrService\": {\"coding\": [{\"system\": \"http://www.nlm.nih.gov/research/umls/rxnorm\", \"code\": \"197361\", \"display\": \"Amoxicillin 500mg\"}]}, \"quantity\": {\"value\": 30}, \"unitPrice\": {\"value\": 15.00, \"currency\": \"USD\"}, \"net\": {\"value\": 15.00, \"currency\": \"USD\"}}],
+        \"total\": {\"value\": 15.00, \"currency\": \"USD\"}
+      }" > /dev/null
+    echo "  Created claim for Sarah Johnson"
+    
+    echo ""
+    echo "Loading CQL validation rules..."
+    
+    # CQL Library
+    echo "Creating CQL Library..."
+    curl -sf -X POST "$FHIR_URL/Library" \
+      -H "Content-Type: application/fhir+json" \
+      -d '{
+        "resourceType": "Library",
+        "id": "claim-validation-library",
+        "url": "http://example.org/fhir/Library/claim-validation-library",
+        "version": "1.0.0",
+        "name": "ClaimValidationLibrary",
+        "title": "Claim Validation CQL Library",
+        "status": "active",
+        "type": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/library-type", "code": "logic-library"}]},
+        "description": "CQL library for validating healthcare claims",
+        "content": [{"contentType": "text/cql", "data": "bGlicmFyeSBDbGFpbVZhbGlkYXRpb24gdmVyc2lvbiAnMS4wLjAnCgp1c2luZyBGSElSIHZlcnNpb24gJzUuMC4wJwoKY29udGV4dCBDbGFpbQoKZGVmaW5lICJDbGFpbSBUb3RhbCBBbW91bnQiOgogIENsYWltLnRvdGFsLnZhbHVlCgpkZWZpbmUgIklzIEhpZ2ggVmFsdWUgQ2xhaW0iOgogICJDbGFpbSBUb3RhbCBBbW91bnQiID4gMTAwMAoKZGVmaW5lICJDbGFpbSBJcyBWYWxpZCI6CiAgZXhpc3RzKENsYWltLmRpYWdub3NpcykgYW5kIGV4aXN0cyhDbGFpbS5wYXRpZW50KQ=="}]
+      }' > /dev/null
+    echo "  Created CQL Library"
+    
+    # PlanDefinition
+    echo "Creating PlanDefinition..."
+    curl -sf -X POST "$FHIR_URL/PlanDefinition" \
+      -H "Content-Type: application/fhir+json" \
+      -d '{
+        "resourceType": "PlanDefinition",
+        "id": "claim-adjudication-workflow",
+        "url": "http://example.org/fhir/PlanDefinition/claim-adjudication-workflow",
+        "version": "1.0.0",
+        "name": "ClaimAdjudicationWorkflow",
+        "title": "Claim Adjudication Workflow",
+        "status": "active",
+        "type": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/plan-definition-type", "code": "workflow-definition"}]},
+        "description": "Automated workflow for claim adjudication using CQL rules",
+        "library": ["Library/claim-validation-library"],
+        "action": [
+          {"title": "Validate Claim", "description": "Check if claim has all required information"},
+          {"title": "Check Prior Authorization", "description": "Determine if claim requires prior authorization"},
+          {"title": "Assess Risk Level", "description": "Evaluate claim risk based on amount and type"}
+        ]
+      }' > /dev/null
+    echo "  Created PlanDefinition"
+    
+    echo ""
+    echo "========================================="
+    echo "Sample Data Loading Complete!"
+    echo "========================================="
+    echo ""
+    
+    # Verify
+    FINAL_PATIENT_COUNT=$(curl -sf "$FHIR_URL/Patient?_summary=count" | grep -o '"total":[0-9]*' | grep -o '[0-9]*' || echo "0")
+    FINAL_CLAIM_COUNT=$(curl -sf "$FHIR_URL/Claim?_summary=count" | grep -o '"total":[0-9]*' | grep -o '[0-9]*' || echo "0")
+    FINAL_LIBRARY_COUNT=$(curl -sf "$FHIR_URL/Library?_summary=count" | grep -o '"total":[0-9]*' | grep -o '[0-9]*' || echo "0")
+    
+    echo "Summary:"
+    echo "  Patients: $FINAL_PATIENT_COUNT"
+    echo "  Claims: $FINAL_CLAIM_COUNT"
+    echo "  CQL Libraries: $FINAL_LIBRARY_COUNT"
+    echo ""
+    echo "Sample data is ready for testing!"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sample-data-loader
+  labels:
+    app: sample-data-loader
+    component: initialization
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: sample-data-loader
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: loader
+        image: curlimages/curl:latest
+        command: ["/bin/sh", "/scripts/load-sample-data.sh"]
+        env:
+        - name: FHIR_SERVER_URL
+          value: "http://hapi-fhir-server:8080/fhir"
+        - name: LOAD_SAMPLE_DATA
+          value: "true"
+        - name: FORCE_RELOAD
+          value: "false"
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+      volumes:
+      - name: scripts
+        configMap:
+          name: sample-data-loader-script
+          defaultMode: 0755
+
+# Made with Bob

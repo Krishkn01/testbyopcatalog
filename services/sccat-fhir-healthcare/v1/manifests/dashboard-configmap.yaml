@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-config
+  labels:
+    app: patient-dashboard
+    component: frontend-config
+data:
+  # Runtime environment configuration
+  # This will be injected into the dashboard at runtime
+  env-config.js: |
+    window.ENV = {
+      REACT_APP_FHIR_BASE_URL: '/fhir',
+      REACT_APP_EDI_PROXY_URL: '/fhir/api/edi',
+      REACT_APP_KEYCLOAK_URL: '/auth',
+      REACT_APP_KEYCLOAK_REALM: 'fhir-healthcare',
+      REACT_APP_KEYCLOAK_CLIENT_ID: 'fhir-dashboard'
+    };
+  
+  # Nginx configuration for serving the dashboard with API proxying
+  nginx.conf: |
+    server {
+      listen 8080;
+      server_name _;
+      root /usr/share/nginx/html;
+      index index.html;
+      
+      # Enable gzip compression
+      gzip on;
+      gzip_vary on;
+      gzip_min_length 1024;
+      gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/json;
+      
+      # Security headers
+      add_header X-Frame-Options "SAMEORIGIN" always;
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header X-XSS-Protection "1; mode=block" always;
+      
+      # API proxy to FHIR server (with resolver for dynamic DNS)
+      # CRITICAL FIX: proxy_pass WITHOUT /fhir/ at end to preserve full path
+      location /fhir/ {
+        resolver 10.43.0.10 valid=10s;
+        set $fhir_backend "hapi-fhir-server.{{ .Values.namespace }}.svc.cluster.local:8080";
+        proxy_pass http://$fhir_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+      }
+      
+      # API proxy to Node.js API service (with resolver for dynamic DNS)
+      # CRITICAL FIX: proxy_pass WITHOUT /api/ at end to prevent path duplication
+      location /api/ {
+        resolver 10.43.0.10 valid=10s;
+        set $api_backend "nodejs-api-service.{{ .Values.namespace }}.svc.cluster.local:3001";
+        proxy_pass http://$api_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+      }
+      
+      # Keycloak proxy (with resolver for dynamic DNS)
+      location /auth/ {
+        resolver 10.43.0.10 valid=10s;
+        set $keycloak_backend "keycloak.{{ .Values.namespace }}.svc.cluster.local:8080";
+        proxy_pass http://$keycloak_backend/auth/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+      }
+      
+      # Serve runtime config
+      location /env-config.js {
+        alias /etc/nginx/conf.d/env-config.js;
+        add_header Content-Type application/javascript;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+      }
+      
+      # React app - serve index.html for all routes (SPA)
+      location / {
+        try_files $uri $uri/ /index.html;
+      }
+      
+      # Cache static assets
+      location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+      }
+      
+      # Health check endpoint
+      location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+      }
+    }
+
+# Made with Bob
+# CRITICAL FIXES APPLIED:
+# 1. DNS resolver set to kube-dns IP (10.43.0.10) for dynamic service discovery
+# 2. Service names use FQDN format with namespace templating
+# 3. FHIR proxy_pass WITHOUT /fhir/ suffix to preserve full request path (/fhir/metadata)
+# 4. API proxy_pass WITHOUT /api/ suffix to prevent path duplication
+# 5. nginx listens on port 8080 (unprivileged)

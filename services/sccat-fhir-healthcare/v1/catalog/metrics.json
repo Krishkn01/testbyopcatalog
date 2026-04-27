@@ -1,0 +1,237 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "FHIR Healthcare Service Metering Definitions",
+  "description": "Metering metrics and billing models for the FHIR healthcare service",
+  "productId": "sccat-fhir-healthcare",
+  "meteringPlan": "metered",
+  "metrics": [
+    {
+      "id": "fhir_api_calls",
+      "name": "FHIR API Calls",
+      "description": "Total number of FHIR API requests (GET, POST, PUT, DELETE) across all resource types",
+      "unit": "requests",
+      "meteringModel": "cumulative",
+      "aggregationPeriod": "hourly",
+      "category": "usage",
+      "billable": true,
+      "unitPrice": 0.001,
+      "currency": "USD",
+      "examples": [
+        "GET /fhir/Patient/123",
+        "POST /fhir/Claim",
+        "PUT /fhir/Coverage/456"
+      ]
+    },
+    {
+      "id": "fhir_resources_stored",
+      "name": "FHIR Resources Stored",
+      "description": "Total count of FHIR resources stored in the database (high-watermark per hour)",
+      "unit": "resources",
+      "meteringModel": "high-watermark",
+      "aggregationPeriod": "hourly",
+      "category": "storage",
+      "billable": true,
+      "unitPrice": 0.0001,
+      "currency": "USD",
+      "examples": [
+        "10000 Patient resources",
+        "5000 Claim resources",
+        "3000 Coverage resources"
+      ]
+    },
+    {
+      "id": "claims_processed",
+      "name": "Claims Processed",
+      "description": "Number of healthcare claims submitted and processed through the system",
+      "unit": "claims",
+      "meteringModel": "cumulative",
+      "aggregationPeriod": "hourly",
+      "category": "transactions",
+      "billable": true,
+      "unitPrice": 0.05,
+      "currency": "USD",
+      "examples": [
+        "Claim submission via FHIR API",
+        "Claim adjudication workflow",
+        "EDI X12 837 conversion"
+      ]
+    },
+    {
+      "id": "edi_transactions",
+      "name": "EDI X12 Transactions",
+      "description": "Number of EDI X12 transactions (837 claims, 835 remittances) processed via webMethods",
+      "unit": "transactions",
+      "meteringModel": "cumulative",
+      "aggregationPeriod": "hourly",
+      "category": "integration",
+      "billable": true,
+      "unitPrice": 0.10,
+      "currency": "USD",
+      "examples": [
+        "EDI X12 837 Professional Claim",
+        "EDI X12 835 Payment/Remittance"
+      ]
+    },
+    {
+      "id": "storage_bytes",
+      "name": "Storage Bytes",
+      "description": "Total storage consumed by FHIR resources and attachments in bytes (high-watermark)",
+      "unit": "bytes",
+      "meteringModel": "high-watermark",
+      "aggregationPeriod": "hourly",
+      "category": "storage",
+      "billable": true,
+      "unitPrice": 0.00000001,
+      "currency": "USD",
+      "examples": [
+        "PostgreSQL database size",
+        "FHIR resource JSON storage",
+        "Binary attachments"
+      ]
+    },
+    {
+      "id": "active_users",
+      "name": "Active Users",
+      "description": "Number of unique authenticated users accessing the system (point-in-time snapshot)",
+      "unit": "users",
+      "meteringModel": "point-in-time",
+      "aggregationPeriod": "hourly",
+      "category": "users",
+      "billable": true,
+      "unitPrice": 1.00,
+      "currency": "USD",
+      "examples": [
+        "Healthcare providers",
+        "Insurance payers",
+        "System administrators"
+      ]
+    },
+    {
+      "id": "cql_validations",
+      "name": "CQL Rule Validations",
+      "description": "Number of Clinical Quality Language (CQL) rule validations executed",
+      "unit": "validations",
+      "meteringModel": "cumulative",
+      "aggregationPeriod": "hourly",
+      "category": "compute",
+      "billable": true,
+      "unitPrice": 0.002,
+      "currency": "USD",
+      "examples": [
+        "Claim validation rules",
+        "Coverage eligibility checks",
+        "Clinical decision support"
+      ]
+    }
+  ],
+  "billingModels": [
+    {
+      "name": "Pay-As-You-Go",
+      "type": "pure-usage",
+      "description": "Pay only for what you use with no base fee",
+      "formula": "Cost = Σ(Metric_Quantity × Unit_Price)",
+      "metrics": [
+        "fhir_api_calls",
+        "claims_processed",
+        "edi_transactions",
+        "storage_bytes",
+        "cql_validations"
+      ],
+      "minimumCharge": 0,
+      "recommended": true
+    },
+    {
+      "name": "Tiered with Overages",
+      "type": "tiered",
+      "description": "Fixed monthly fee includes usage bundle, pay for overages",
+      "tiers": [
+        {
+          "name": "Starter",
+          "baseFee": 100,
+          "currency": "USD",
+          "period": "monthly",
+          "includes": {
+            "fhir_api_calls": 100000,
+            "claims_processed": 1000,
+            "storage_bytes": 10737418240,
+            "active_users": 10
+          },
+          "overageRates": {
+            "fhir_api_calls": 0.001,
+            "claims_processed": 0.05,
+            "storage_bytes": 0.00000001,
+            "active_users": 1.00
+          }
+        },
+        {
+          "name": "Professional",
+          "baseFee": 500,
+          "currency": "USD",
+          "period": "monthly",
+          "includes": {
+            "fhir_api_calls": 1000000,
+            "claims_processed": 10000,
+            "storage_bytes": 107374182400,
+            "active_users": 50
+          },
+          "overageRates": {
+            "fhir_api_calls": 0.0008,
+            "claims_processed": 0.04,
+            "storage_bytes": 0.000000008,
+            "active_users": 0.80
+          }
+        },
+        {
+          "name": "Enterprise",
+          "baseFee": 2000,
+          "currency": "USD",
+          "period": "monthly",
+          "includes": {
+            "fhir_api_calls": 10000000,
+            "claims_processed": 100000,
+            "storage_bytes": 1073741824000,
+            "active_users": 500
+          },
+          "overageRates": {
+            "fhir_api_calls": 0.0005,
+            "claims_processed": 0.03,
+            "storage_bytes": 0.000000005,
+            "active_users": 0.50
+          }
+        }
+      ]
+    },
+    {
+      "name": "Hybrid Subscription",
+      "type": "hybrid",
+      "description": "Monthly platform fee plus usage-based charges",
+      "baseFee": 250,
+      "currency": "USD",
+      "period": "monthly",
+      "includes": {
+        "platform_access": true,
+        "support": "standard",
+        "sla": "99.5%"
+      },
+      "usageMetrics": [
+        "fhir_api_calls",
+        "claims_processed",
+        "edi_transactions",
+        "storage_bytes"
+      ],
+      "formula": "Cost = Base_Fee + Σ(Metric_Quantity × Unit_Price)"
+    }
+  ],
+  "meteringConfiguration": {
+    "submissionInterval": "hourly",
+    "submissionWindow": "24h",
+    "retryPolicy": {
+      "maxRetries": 3,
+      "backoffMultiplier": 2,
+      "initialDelay": "1s"
+    },
+    "batchSize": 100,
+    "bufferSize": 1000
+  }
+}

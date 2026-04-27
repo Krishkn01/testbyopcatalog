@@ -1,0 +1,180 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "FHIR Healthcare Service Instance Parameters",
+  "description": "Parameters for provisioning a complete HL7 FHIR R5 healthcare service with HAPI FHIR server, PostgreSQL database, patient dashboard, and Keycloak authentication. Credentials must be pre-created in the instance namespace.",
+  "properties": {
+    "cluster_url": {
+      "type": "string",
+      "description": "Target cluster server URL (optional, defaults to broker's cluster). Must be a registered ArgoCD cluster.",
+      "format": "uri",
+      "pattern": "^https://.*",
+      "examples": [
+        "https://kubernetes.default.svc",
+        "https://192.168.2.89:6443"
+      ]
+    },
+    "namespace": {
+      "type": "string",
+      "description": "Target Kubernetes namespace for this FHIR service instance. Must be chosen by the operator before provisioning so secrets can be pre-created there.",
+      "pattern": "^[a-z0-9][a-z0-9\\-]*[a-z0-9]$",
+      "minLength": 1,
+      "maxLength": 253,
+      "examples": ["fhir-healthcare", "healthcare-prod", "fhir-dev"]
+    },
+    "fhir_secret_name": {
+      "type": "string",
+      "description": "Name of the pre-existing Kubernetes Secret for FHIR database credentials. Must contain keys: postgres-db, postgres-user, postgres-password.",
+      "pattern": "^[a-z0-9][a-z0-9\\-]*[a-z0-9]$",
+      "minLength": 1,
+      "maxLength": 253,
+      "examples": ["fhir-db-credentials", "fhir-secret", "healthcare-db-secret"]
+    },
+    "keycloak_secret_name": {
+      "type": "string",
+      "description": "Name of the pre-existing Kubernetes Secret for Keycloak admin credentials. Must contain keys: admin-user, admin-password.",
+      "pattern": "^[a-z0-9][a-z0-9\\-]*[a-z0-9]$",
+      "minLength": 1,
+      "maxLength": 253,
+      "examples": ["keycloak-credentials", "keycloak-secret", "auth-secret"]
+    },
+    "webmethods_secret_name": {
+      "type": "string",
+      "description": "Name of the pre-existing Kubernetes Secret for webMethods integration credentials. Must contain keys: api-key, claim-endpoint, claimresponse-endpoint.",
+      "pattern": "^[a-z0-9][a-z0-9\\-]*[a-z0-9]$",
+      "minLength": 1,
+      "maxLength": 253,
+      "examples": ["webmethods-credentials", "webmethods-secret", "edi-secret"]
+    },
+    "fhir_version": {
+      "type": "string",
+      "description": "FHIR specification version to use",
+      "enum": ["R4", "R5"],
+      "default": "R5",
+      "examples": ["R5"]
+    },
+    "postgres_storage_size": {
+      "type": "string",
+      "description": "Storage size for PostgreSQL persistent volume",
+      "pattern": "^[0-9]+Gi$",
+      "default": "20Gi",
+      "examples": ["20Gi", "50Gi", "100Gi"]
+    },
+    "fhir_replicas": {
+      "type": "integer",
+      "description": "Number of HAPI FHIR server replicas",
+      "minimum": 1,
+      "maximum": 5,
+      "default": 1,
+      "examples": [1, 2, 3]
+    },
+    "dashboard_replicas": {
+      "type": "integer",
+      "description": "Number of patient dashboard replicas",
+      "minimum": 1,
+      "maximum": 5,
+      "default": 2,
+      "examples": [1, 2, 3]
+    },
+    "enable_keycloak": {
+      "type": "boolean",
+      "description": "Enable Keycloak authentication and SMART on FHIR",
+      "default": true,
+      "examples": [true, false]
+    },
+    "enable_webmethods": {
+      "type": "boolean",
+      "description": "Enable webMethods EDI X12 integration for claims processing",
+      "default": true,
+      "examples": [true, false]
+    },
+    "fhir_memory_limit": {
+      "type": "string",
+      "description": "Memory limit for HAPI FHIR server pods",
+      "pattern": "^[0-9]+Gi$",
+      "default": "2Gi",
+      "examples": ["2Gi", "4Gi", "8Gi"]
+    },
+    "fhir_cpu_limit": {
+      "type": "string",
+      "description": "CPU limit for HAPI FHIR server pods",
+      "pattern": "^[0-9]+(\\.[0-9]+)?$",
+      "default": "2",
+      "examples": ["1", "2", "4"]
+    },
+    "postgres_memory_limit": {
+      "type": "string",
+      "description": "Memory limit for PostgreSQL pods",
+      "pattern": "^[0-9]+Gi$",
+      "default": "1Gi",
+      "examples": ["1Gi", "2Gi", "4Gi"]
+    },
+    "enable_validation": {
+      "type": "boolean",
+      "description": "Enable FHIR resource validation",
+      "default": true,
+      "examples": [true, false]
+    },
+    "enable_narrative": {
+      "type": "boolean",
+      "description": "Enable narrative generation for FHIR resources",
+      "default": true,
+      "examples": [true, false]
+    },
+    "ingress_enabled": {
+      "type": "boolean",
+      "description": "Enable ingress for external access",
+      "default": false,
+      "examples": [true, false]
+    },
+    "ingress_host": {
+      "type": "string",
+      "description": "Hostname for ingress (required if ingress_enabled is true)",
+      "pattern": "^[a-z0-9]([a-z0-9\\-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9\\-]*[a-z0-9])?)*$",
+      "examples": ["fhir.example.com", "healthcare.company.com"]
+    }
+  },
+  "required": [
+    "namespace",
+    "fhir_secret_name"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "enable_keycloak": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": ["keycloak_secret_name"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "enable_webmethods": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": ["webmethods_secret_name"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "ingress_enabled": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": ["ingress_host"]
+      }
+    }
+  ]
+}

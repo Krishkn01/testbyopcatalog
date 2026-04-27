@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fhir-config
+  labels:
+    app: fhir-config
+    component: configuration
+data:
+  # FHIR Server Configuration
+  fhir-version: "R5"
+  validation-enabled: "true"
+  narrative-enabled: "true"
+  
+  # Database Configuration (service DNS names)
+  postgres-host: "fhir-postgres"
+  postgres-port: "5432"
+  
+  # Keycloak OAuth2 Configuration (service DNS names)
+  keycloak-issuer-uri: "http://keycloak:8080/realms/fhir-healthcare"
+  keycloak-jwk-set-uri: "http://keycloak:8080/realms/fhir-healthcare/protocol/openid-connect/certs"
+  
+  # FHIR Server Address (for tester UI)
+  fhir-server-address: "http://hapi-fhir-server:8080/fhir"
+
+# Made with Bob

@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hapi-fhir-server
+  labels:
+    app: hapi-fhir-server
+    component: fhir-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hapi-fhir-server
+  template:
+    metadata:
+      labels:
+        app: hapi-fhir-server
+        component: fhir-api
+    spec:
+      containers:
+      - name: hapi-fhir
+        image: hapiproject/hapi:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        # Database Configuration
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: fhir-config
+              key: postgres-host
+        - name: POSTGRES_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: fhir-config
+              key: postgres-port
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: fhir-db-secret
+              key: postgres-db
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:postgresql://$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: fhir-db-secret
+              key: postgres-user
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fhir-db-secret
+              key: postgres-password
+        - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+          value: org.postgresql.Driver
+        - name: SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT
+          value: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgresDialect
+        - name: SPRING_JPA_PROPERTIES_HIBERNATE_HBM2DDL_AUTO
+          value: update
+        
+        # FHIR Configuration
+        - name: HAPI_FHIR_FHIR_VERSION
+          valueFrom:
+            configMapKeyRef:
+              name: fhir-config
+              key: fhir-version
+        - name: HAPI_FHIR_VALIDATION_REQUESTS_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: fhir-config
+              key: validation-enabled
+        - name: HAPI_FHIR_NARRATIVE_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: fhir-config
+              key: narrative-enabled
+        - name: HAPI_FHIR_TESTER_HOME_SERVER_ADDRESS
+          valueFrom:
+            configMapKeyRef:
+              name: fhir-config
+              key: fhir-server-address
+        
+        # Keycloak OAuth2 Configuration
+        - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+          valueFrom:
+            configMapKeyRef:
+              name: fhir-config
+              key: keycloak-issuer-uri
+        - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
+          valueFrom:
+            configMapKeyRef:
+              name: fhir-config
+              key: keycloak-jwk-set-uri
+        
+        # Java Options - Increased for FHIR validation resources
+        - name: JAVA_OPTS
+          value: "-Xmx4g -Xms2g"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "5Gi"
+            cpu: "2"
+        readinessProbe:
+          httpGet:
+            path: /fhir/metadata
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /fhir/metadata
+            port: 8080
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+
+# Made with Bob

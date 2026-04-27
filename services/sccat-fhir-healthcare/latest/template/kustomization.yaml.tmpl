@@ -1,0 +1,248 @@
+# Rendered Kustomization Overlay for {{ instance_name }}
+# This file is generated from template/kustomization.yaml.tmpl
+# Instance: {{ instance_name }}
+# Namespace: {{ namespace }}
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: {{ namespace }}
+
+# Base manifests
+resources:
+- ../../../services/sccat-fhir-healthcare/v1/manifests/postgres-statefulset.yaml
+- ../../../services/sccat-fhir-healthcare/v1/manifests/postgres-service.yaml
+- ../../../services/sccat-fhir-healthcare/v1/manifests/fhir-deployment.yaml
+- ../../../services/sccat-fhir-healthcare/v1/manifests/fhir-service.yaml
+- ../../../services/sccat-fhir-healthcare/v1/manifests/fhir-configmap.yaml
+- ../../../services/sccat-fhir-healthcare/v1/manifests/dashboard-deployment.yaml
+- ../../../services/sccat-fhir-healthcare/v1/manifests/dashboard-service.yaml
+- ../../../services/sccat-fhir-healthcare/v1/manifests/metering-sidecar-deployment.yaml
+{% if enable_keycloak %}
+- ../../../services/sccat-fhir-healthcare/v1/manifests/keycloak-deployment.yaml
+- ../../../services/sccat-fhir-healthcare/v1/manifests/keycloak-service.yaml
+- ../../../services/sccat-fhir-healthcare/v1/manifests/keycloak-configmap.yaml
+{% endif %}
+
+# Name prefix for all resources
+namePrefix: {{ instance_name }}-
+
+# Common labels
+commonLabels:
+  app.kubernetes.io/instance: {{ instance_name }}
+  app.kubernetes.io/managed-by: sovereign-core
+  environment: {{ environment | default('production') }}
+
+# Patches for instance-specific configuration
+patches:
+# PostgreSQL StatefulSet patches
+- target:
+    kind: StatefulSet
+    name: postgres
+  patch: |-
+    - op: replace
+      path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+      value: {{ postgres_storage_size }}
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: {{ postgres_memory_limit }}
+    - op: replace
+      path: /spec/template/spec/containers/0/env
+      value:
+      - name: POSTGRES_DB
+        valueFrom:
+          secretKeyRef:
+            name: {{ fhir_secret_name }}
+            key: postgres-db
+      - name: POSTGRES_USER
+        valueFrom:
+          secretKeyRef:
+            name: {{ fhir_secret_name }}
+            key: postgres-user
+      - name: POSTGRES_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: {{ fhir_secret_name }}
+            key: postgres-password
+
+# FHIR Deployment patches
+- target:
+    kind: Deployment
+    name: fhir
+  patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: {{ fhir_replicas }}
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: {{ fhir_memory_limit }}
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "{{ fhir_cpu_limit }}"
+    - op: replace
+      path: /spec/template/spec/containers/0/env
+      value:
+      - name: spring.datasource.url
+        value: jdbc:postgresql://{{ instance_name }}-postgres:5432/fhirdb
+      - name: spring.datasource.username
+        valueFrom:
+          secretKeyRef:
+            name: {{ fhir_secret_name }}
+            key: postgres-user
+      - name: spring.datasource.password
+        valueFrom:
+          secretKeyRef:
+            name: {{ fhir_secret_name }}
+            key: postgres-password
+      - name: spring.datasource.driverClassName
+        value: org.postgresql.Driver
+      - name: hapi.fhir.fhir_version
+        value: {{ fhir_version }}
+      - name: hapi.fhir.validation.enabled
+        value: "{{ enable_validation | lower }}"
+      - name: hapi.fhir.narrative_enabled
+        value: "{{ enable_narrative | lower }}"
+{% if enable_keycloak %}
+      - name: hapi.fhir.security.enabled
+        value: "true"
+      - name: hapi.fhir.security.oauth2.issuer_uri
+        value: http://{{ instance_name }}-keycloak:8180/realms/fhir-healthcare
+{% endif %}
+
+# Dashboard Deployment patches
+- target:
+    kind: Deployment
+    name: dashboard
+  patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: {{ dashboard_replicas }}
+    - op: replace
+      path: /spec/template/spec/containers/0/env
+      value:
+      - name: REACT_APP_FHIR_SERVER_URL
+        value: http://{{ instance_name }}-fhir:8080/fhir
+      - name: REACT_APP_KEYCLOAK_ENABLED
+        value: "{{ enable_keycloak | lower }}"
+{% if enable_keycloak %}
+      - name: REACT_APP_KEYCLOAK_URL
+        value: http://{{ instance_name }}-keycloak:8180
+      - name: REACT_APP_KEYCLOAK_REALM
+        value: fhir-healthcare
+      - name: REACT_APP_KEYCLOAK_CLIENT_ID
+        value: fhir-dashboard
+{% endif %}
+      - name: REACT_APP_WEBMETHODS_ENABLED
+        value: "{{ enable_webmethods | lower }}"
+
+# Metering Collector patches
+- target:
+    kind: Deployment
+    name: metering-collector
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/env
+      value:
+      - name: METERING_DOMAIN
+        value: "{{ metering_domain | default('https://xpm.apps.cluster.local') }}"
+      - name: METERING_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: metering-credentials
+            key: metering-token
+            optional: true
+      - name: PRODUCT_ID
+        value: "sccat-fhir-healthcare"
+      - name: INSTANCE_ID
+        value: "{{ instance_id | default(instance_name) }}"
+      - name: SUBACCOUNT_ID
+        valueFrom:
+          secretKeyRef:
+            name: metering-credentials
+            key: subaccount-id
+            optional: true
+      - name: FHIR_SERVER_URL
+        value: "http://{{ instance_name }}-fhir:8080"
+      - name: POSTGRES_HOST
+        value: "{{ instance_name }}-postgres"
+      - name: POSTGRES_PORT
+        value: "5432"
+      - name: POSTGRES_DB
+        valueFrom:
+          secretKeyRef:
+            name: {{ fhir_secret_name }}
+            key: postgres-db
+      - name: POSTGRES_USER
+        valueFrom:
+          secretKeyRef:
+            name: {{ fhir_secret_name }}
+            key: postgres-user
+      - name: POSTGRES_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: {{ fhir_secret_name }}
+            key: postgres-password
+      - name: COLLECTION_INTERVAL
+        value: "{{ metering_collection_interval | default('3600000') }}"
+      - name: SUBMISSION_INTERVAL
+        value: "{{ metering_submission_interval | default('3600000') }}"
+
+{% if enable_keycloak %}
+# Keycloak Deployment patches
+- target:
+    kind: Deployment
+    name: keycloak
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/env
+      value:
+      - name: KEYCLOAK_ADMIN
+        valueFrom:
+          secretKeyRef:
+            name: {{ keycloak_secret_name }}
+            key: admin-user
+      - name: KEYCLOAK_ADMIN_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: {{ keycloak_secret_name }}
+            key: admin-password
+      - name: KC_DB
+        value: postgres
+      - name: KC_DB_URL
+        value: jdbc:postgresql://{{ instance_name }}-postgres:5432/keycloakdb
+      - name: KC_DB_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: {{ keycloak_secret_name }}
+            key: db-user
+            optional: true
+      - name: KC_DB_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: {{ keycloak_secret_name }}
+            key: db-password
+            optional: true
+      - name: KC_HEALTH_ENABLED
+        value: "true"
+      - name: KC_METRICS_ENABLED
+        value: "true"
+      - name: KC_LOG_LEVEL
+        value: INFO
+      - name: JAVA_OPTS_APPEND
+        value: "-Djava.net.preferIPv4Stack=true -Xms512m -Xmx1024m"
+{% endif %}
+
+# ConfigMap patches
+- target:
+    kind: ConfigMap
+    name: fhir-config
+  patch: |-
+    - op: replace
+      path: /data/fhir.version
+      value: {{ fhir_version }}
+    - op: replace
+      path: /data/validation.enabled
+      value: "{{ enable_validation | lower }}"
+    - op: replace
+      path: /data/narrative.enabled
+      value: "{{ enable_narrative | lower }}"

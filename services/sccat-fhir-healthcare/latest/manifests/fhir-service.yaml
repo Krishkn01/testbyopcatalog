@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hapi-fhir-server
+  labels:
+    app: hapi-fhir-server
+    component: fhir-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: hapi-fhir-server
+
+# Made with Bob

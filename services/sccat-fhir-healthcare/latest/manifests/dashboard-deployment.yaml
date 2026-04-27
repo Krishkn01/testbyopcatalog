@@ -1,0 +1,177 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: patient-dashboard
+  namespace: fhir-test
+  labels:
+    app: patient-dashboard
+    tier: frontend
+    component: ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: patient-dashboard
+  template:
+    metadata:
+      labels:
+        app: patient-dashboard
+        tier: frontend
+        component: ui
+    spec:
+      containers:
+      - name: dashboard
+        image: patient-dashboard:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: REACT_APP_FHIR_SERVER_URL
+          value: "http://hapi-fhir-server:8080/fhir"
+        - name: REACT_APP_API_URL
+          value: "http://nodejs-api-service:3001/api"
+        - name: REACT_APP_KEYCLOAK_URL
+          value: "http://keycloak:8080/auth"
+        - name: REACT_APP_KEYCLOAK_REALM
+          value: "fhir-realm"
+        - name: REACT_APP_KEYCLOAK_CLIENT_ID
+          value: "fhir-client"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          runAsNonRoot: false
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+        volumeMounts:
+        - name: cache
+          mountPath: /var/cache/nginx
+        - name: run
+          mountPath: /var/run
+      volumes:
+      - name: cache
+        emptyDir: {}
+      - name: run
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: patient-dashboard
+  namespace: fhir-test
+  labels:
+    app: patient-dashboard
+    tier: frontend
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: patient-dashboard
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-config
+  namespace: fhir-test
+data:
+  config.json: |
+    {
+      "fhirServerUrl": "http://hapi-fhir-server:8080/fhir",
+      "apiUrl": "http://nodejs-api-service:3001/api",
+      "keycloakUrl": "http://keycloak:8080/auth",
+      "keycloakRealm": "fhir-realm",
+      "keycloakClientId": "fhir-client",
+      "features": {
+        "providerRole": {
+          "enabled": true,
+          "permissions": {
+            "canAddPatient": true,
+            "canEditPatient": true,
+            "canViewCoverage": true,
+            "canEditCoverage": false,
+            "canCreateClaim": true,
+            "canEditClaim": false,
+            "canAdjudicateClaim": false
+          }
+        },
+        "payerRole": {
+          "enabled": true,
+          "permissions": {
+            "canAddPatient": true,
+            "canEditPatient": false,
+            "canViewCoverage": true,
+            "canEditCoverage": true,
+            "canCreateClaim": false,
+            "canEditClaim": true,
+            "canAdjudicateClaim": true,
+            "canViewSettings": true,
+            "canManageSmartAccess": true
+          }
+        },
+        "adminRole": {
+          "enabled": true,
+          "permissions": {
+            "canAddPatient": true,
+            "canEditPatient": true,
+            "canViewCoverage": true,
+            "canEditCoverage": true,
+            "canCreateClaim": true,
+            "canEditClaim": true,
+            "canAdjudicateClaim": true,
+            "canViewSettings": true,
+            "canManageSmartAccess": true
+          }
+        }
+      },
+      "testAccounts": [
+        {
+          "role": "provider",
+          "username": "provider1",
+          "password": "provider123",
+          "displayName": "Dr. Sarah Johnson"
+        },
+        {
+          "role": "payer",
+          "username": "payer1",
+          "password": "payer123",
+          "displayName": "Insurance Adjuster"
+        },
+        {
+          "role": "admin",
+          "username": "admin",
+          "password": "admin123",
+          "displayName": "System Administrator"
+        }
+      ]
+    }
+
+# Made with Bob

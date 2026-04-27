@@ -1,0 +1,178 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nodejs-api-service
+  labels:
+    app: nodejs-api-service
+    component: api-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nodejs-api-service
+  template:
+    metadata:
+      labels:
+        app: nodejs-api-service
+        component: api-gateway
+    spec:
+      containers:
+      - name: nodejs-api
+        image: nodejs-api-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3001
+          name: http
+        env:
+        # Server Configuration
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3001"
+        - name: HOST
+          value: "0.0.0.0"
+        
+        # Database Configuration (same as FHIR server)
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: fhir-config
+              key: postgres-host
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: fhir-config
+              key: postgres-port
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: fhir-db-secret
+              key: postgres-db
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: fhir-db-secret
+              key: postgres-user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fhir-db-secret
+              key: postgres-password
+        - name: DB_SSL
+          value: "false"
+        - name: DB_LOGGING
+          value: "false"
+        
+        # JWT Configuration
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: fhir-db-secret
+              key: jwt-secret
+              optional: true
+        - name: JWT_ISSUER
+          valueFrom:
+            configMapKeyRef:
+              name: fhir-config
+              key: keycloak-issuer-uri
+        
+        # webMethods Configuration
+        - name: WEBMETHODS_EDI_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: fhir-config
+              key: webmethods-edi-endpoint
+              optional: true
+        - name: WEBMETHODS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: fhir-db-secret
+              key: webmethods-api-key
+              optional: true
+        
+        # Logging Configuration
+        - name: LOG_LEVEL
+          value: "info"
+        - name: LOG_FILE
+          value: "logs/nodejs-api.log"
+        - name: LOG_MAX_SIZE
+          value: "10m"
+        - name: LOG_MAX_FILES
+          value: "30d"
+        
+        # CORS Configuration
+        - name: CORS_ORIGIN
+          value: "*"
+        
+        # FHIR Server Configuration
+        - name: FHIR_SERVER_URL
+          value: "http://hapi-fhir-server.{{ .Values.namespace }}.svc.cluster.local:8080/fhir"
+        
+        # Rate Limiting
+        - name: RATE_LIMIT_WINDOW_MS
+          value: "60000"
+        - name: RATE_LIMIT_MAX_REQUESTS
+          value: "100"
+        
+        # Security
+        - name: SESSION_TIMEOUT_MS
+          value: "900000"
+        
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      
+      volumes:
+      - name: logs
+        emptyDir: {}
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodejs-api-service
+  labels:
+    app: nodejs-api-service
+    component: api-gateway
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3001
+    targetPort: 3001
+    protocol: TCP
+    name: http
+  selector:
+    app: nodejs-api-service
+
+# Made with Bob

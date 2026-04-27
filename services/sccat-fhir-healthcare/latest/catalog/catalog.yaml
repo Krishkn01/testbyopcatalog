@@ -1,0 +1,18 @@
+name: sccat-fhir-healthcare
+display_name: FHIR Healthcare Service
+description: HL7 FHIR R4 server with PostgreSQL database, Keycloak authentication, patient dashboard, and webMethods integration for sovereign healthcare data management
+plans:
+  - id: standard
+    name: Standard
+    description: Full-featured FHIR server with all components (PostgreSQL, Keycloak, Dashboard, webMethods, Metering)
+  - id: minimal
+    name: Minimal
+    description: FHIR server with PostgreSQL only (no authentication, no dashboard, no webMethods)
+  - id: secure
+    name: Secure
+    description: FHIR server with PostgreSQL and Keycloak authentication (no dashboard, no webMethods)
+  - id: enterprise
+    name: Enterprise
+    description: FHIR server with PostgreSQL, Keycloak, Dashboard, and webMethods integration (full stack)
+
+# Made with Bob

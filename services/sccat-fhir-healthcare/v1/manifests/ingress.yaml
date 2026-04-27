@@ -1,0 +1,95 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fhir-healthcare-ingress
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+  # Default rule - works with any hostname
+  - http:
+      paths:
+      # Dashboard on root path
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: patient-dashboard
+            port:
+              number: 80
+      # FHIR Server on /fhir path
+      - path: /fhir
+        pathType: Prefix
+        backend:
+          service:
+            name: hapi-fhir-server
+            port:
+              number: 8080
+      # Keycloak on /auth path
+      - path: /auth
+        pathType: Prefix
+        backend:
+          service:
+            name: keycloak
+            port:
+              number: 8180
+---
+# Alternative: Separate host-based routing
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fhir-dashboard-ingress
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+  - host: fhir-dashboard.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: patient-dashboard
+            port:
+              number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fhir-server-ingress
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+  - host: fhir-server.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: hapi-fhir-server
+            port:
+              number: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak-ingress
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+  - host: keycloak.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: keycloak
+            port:
+              number: 8180
+
+# Made with Bob
