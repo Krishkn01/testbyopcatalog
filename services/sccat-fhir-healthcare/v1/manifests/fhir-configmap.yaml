@@ -11,15 +11,15 @@ data:
   validation-enabled: "true"
   narrative-enabled: "true"
   
-  # Database Configuration (service DNS names)
-  postgres-host: "fhir-postgres"
+  # Database Configuration (service DNS names - will be prefixed by kustomize)
+  postgres-host: "postgres"
   postgres-port: "5432"
   
-  # Keycloak OAuth2 Configuration (service DNS names)
+  # Keycloak OAuth2 Configuration (service DNS names - will be prefixed by kustomize)
   keycloak-issuer-uri: "http://keycloak:8080/realms/fhir-healthcare"
   keycloak-jwk-set-uri: "http://keycloak:8080/realms/fhir-healthcare/protocol/openid-connect/certs"
   
-  # FHIR Server Address (for tester UI)
+  # FHIR Server Address (for tester UI - will be prefixed by kustomize)
   fhir-server-address: "http://hapi-fhir-server:8080/fhir"
 
 # Made with Bob
