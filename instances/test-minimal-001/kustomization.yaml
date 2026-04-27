@@ -2,17 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: fhir-minimal
 resources:
-- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/postgres-statefulset.yaml?ref=main
-- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/postgres-service.yaml?ref=main
-- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/fhir-deployment.yaml?ref=main
-- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/fhir-service.yaml?ref=main
-- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/fhir-configmap.yaml?ref=main
-- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/dashboard-deployment.yaml?ref=main
-- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/dashboard-service.yaml?ref=main
-- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/metering-sidecar-deployment.yaml?ref=main
-- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/keycloak-deployment.yaml?ref=main
-- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/keycloak-service.yaml?ref=main
-- https://github.com/Krishkn01/testbyopcatalog/services/sccat-fhir-healthcare/v1/manifests/keycloak-configmap.yaml?ref=main
+- https://github.com/Krishkn01/testbyopcatalog//services/sccat-fhir-healthcare/v1/manifests?ref=main
 namePrefix: test-minimal-001-
 commonLabels:
   app.kubernetes.io/instance: test-minimal-001
