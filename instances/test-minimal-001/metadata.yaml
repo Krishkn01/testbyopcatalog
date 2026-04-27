@@ -5,7 +5,7 @@ environment: dev
 replicas: 1
 storage_size: 10Gi
 image: sccat-fhir-healthcare:8.0
-created_at: '2026-04-28T00:39:10.308195'
+created_at: '2026-04-28T00:44:44.733016'
 status: provisioned
 sbom_available: false
 service_id: sccat-fhir-healthcare-service
