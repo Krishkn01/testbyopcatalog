@@ -234,3 +234,6 @@ patches:
     - op: replace
       path: /data/narrative.enabled
       value: "{{ enable_narrative | lower }}"
+    - op: replace
+      path: /data/postgres-host
+      value: fhir-postgres

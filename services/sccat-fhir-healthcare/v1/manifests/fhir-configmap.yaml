@@ -12,7 +12,7 @@ data:
   narrative-enabled: "true"
   
   # Database Configuration (service DNS names - will be prefixed by kustomize)
-  postgres-host: "postgres"
+  postgres-host: "fhir-postgres"
   postgres-port: "5432"
   
   # Keycloak OAuth2 Configuration (service DNS names - will be prefixed by kustomize)
