@@ -37,19 +37,19 @@ spec:
         - name: POSTGRES_DB
           valueFrom:
             secretKeyRef:
-              name: fhir-db-secret
+              name: fhir-minimal-secret
               key: postgres-db
         - name: SPRING_DATASOURCE_URL
           value: jdbc:postgresql://$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)
         - name: SPRING_DATASOURCE_USERNAME
           valueFrom:
             secretKeyRef:
-              name: fhir-db-secret
+              name: fhir-minimal-secret
               key: postgres-user
         - name: SPRING_DATASOURCE_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: fhir-db-secret
+              name: fhir-minimal-secret
               key: postgres-password
         - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
           value: org.postgresql.Driver
