@@ -1,89 +1,240 @@
+# Rendered Kustomization Overlay for test-minimal-001
+# This file is generated from template/kustomization.yaml.tmpl
+# Instance: test-minimal-001
+# Namespace: fhir-minimal
+
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+
 namespace: fhir-minimal
+
+# Base manifests from GitHub repository
 resources:
 - https://github.com/Krishkn01/testbyopcatalog//services/sccat-fhir-healthcare/v1/manifests?ref=main
+
+# Name prefix for all resources
 namePrefix: test-minimal-001-
+
+# Common labels
 commonLabels:
   app.kubernetes.io/instance: test-minimal-001
   app.kubernetes.io/managed-by: sovereign-core
   environment: dev
+
+# Patches for instance-specific configuration
 patches:
+# PostgreSQL StatefulSet patches
 - target:
     kind: StatefulSet
     name: postgres
-  patch: "- op: replace\n  path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage\n\
-    \  value: 5Gi\n- op: replace\n  path: /spec/template/spec/containers/0/resources/limits/memory\n\
-    \  value: 1Gi\n- op: replace\n  path: /spec/template/spec/containers/0/env\n \
-    \ value:\n  - name: POSTGRES_DB\n    valueFrom:\n      secretKeyRef:\n       \
-    \ name: fhir-minimal-secret\n        key: postgres-db\n  - name: POSTGRES_USER\n\
-    \    valueFrom:\n      secretKeyRef:\n        name: fhir-minimal-secret\n    \
-    \    key: postgres-user\n  - name: POSTGRES_PASSWORD\n    valueFrom:\n      secretKeyRef:\n\
-    \        name: fhir-minimal-secret\n        key: postgres-password"
+  patch: |-
+    - op: replace
+      path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+      value: 5Gi
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: 1Gi
+    - op: replace
+      path: /spec/template/spec/containers/0/env
+      value:
+      - name: POSTGRES_DB
+        valueFrom:
+          secretKeyRef:
+            name: fhir-minimal-secret
+            key: postgres-db
+      - name: POSTGRES_USER
+        valueFrom:
+          secretKeyRef:
+            name: fhir-minimal-secret
+            key: postgres-user
+      - name: POSTGRES_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: fhir-minimal-secret
+            key: postgres-password
+
+# FHIR Deployment patches
 - target:
     kind: Deployment
     name: fhir
-  patch: "- op: replace\n  path: /spec/replicas\n  value: 1\n- op: replace\n  path:\
-    \ /spec/template/spec/containers/0/resources/limits/memory\n  value: 2Gi\n- op:\
-    \ replace\n  path: /spec/template/spec/containers/0/resources/limits/cpu\n  value:\
-    \ \"2\"\n- op: replace\n  path: /spec/template/spec/containers/0/env\n  value:\n\
-    \  - name: spring.datasource.url\n    value: jdbc:postgresql://test-minimal-001-postgres:5432/fhirdb\n\
-    \  - name: spring.datasource.username\n    valueFrom:\n      secretKeyRef:\n \
-    \       name: fhir-minimal-secret\n        key: postgres-user\n  - name: spring.datasource.password\n\
-    \    valueFrom:\n      secretKeyRef:\n        name: fhir-minimal-secret\n    \
-    \    key: postgres-password\n  - name: spring.datasource.driverClassName\n   \
-    \ value: org.postgresql.Driver\n  - name: hapi.fhir.fhir_version\n    value: R5\n\
-    \  - name: hapi.fhir.validation.enabled\n    value: \"true\"\n  - name: hapi.fhir.narrative_enabled\n\
-    \    value: \"true\"\n  - name: hapi.fhir.security.enabled\n    value: \"true\"\
-    \n  - name: hapi.fhir.security.oauth2.issuer_uri\n    value: http://test-minimal-001-keycloak:8180/realms/fhir-healthcare"
+  patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 1
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: 2Gi
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "2"
+    - op: replace
+      path: /spec/template/spec/containers/0/env
+      value:
+      - name: spring.datasource.url
+        value: jdbc:postgresql://test-minimal-001-postgres:5432/fhirdb
+      - name: spring.datasource.username
+        valueFrom:
+          secretKeyRef:
+            name: fhir-minimal-secret
+            key: postgres-user
+      - name: spring.datasource.password
+        valueFrom:
+          secretKeyRef:
+            name: fhir-minimal-secret
+            key: postgres-password
+      - name: spring.datasource.driverClassName
+        value: org.postgresql.Driver
+      - name: hapi.fhir.fhir_version
+        value: R5
+      - name: hapi.fhir.validation.enabled
+        value: "true"
+      - name: hapi.fhir.narrative_enabled
+        value: "true"
+
+      - name: hapi.fhir.security.enabled
+        value: "true"
+      - name: hapi.fhir.security.oauth2.issuer_uri
+        value: http://test-minimal-001-keycloak:8180/realms/fhir-healthcare
+
+
+# Dashboard Deployment patches
 - target:
     kind: Deployment
     name: dashboard
-  patch: "- op: replace\n  path: /spec/replicas\n  value: 2\n- op: replace\n  path:\
-    \ /spec/template/spec/containers/0/env\n  value:\n  - name: REACT_APP_FHIR_SERVER_URL\n\
-    \    value: http://test-minimal-001-fhir:8080/fhir\n  - name: REACT_APP_KEYCLOAK_ENABLED\n\
-    \    value: \"true\"\n  - name: REACT_APP_KEYCLOAK_URL\n    value: http://test-minimal-001-keycloak:8180\n\
-    \  - name: REACT_APP_KEYCLOAK_REALM\n    value: fhir-healthcare\n  - name: REACT_APP_KEYCLOAK_CLIENT_ID\n\
-    \    value: fhir-dashboard\n  - name: REACT_APP_WEBMETHODS_ENABLED\n    value:\
-    \ \"true\""
+  patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 2
+    - op: replace
+      path: /spec/template/spec/containers/0/env
+      value:
+      - name: REACT_APP_FHIR_SERVER_URL
+        value: http://test-minimal-001-fhir:8080/fhir
+      - name: REACT_APP_KEYCLOAK_ENABLED
+        value: "true"
+
+      - name: REACT_APP_KEYCLOAK_URL
+        value: http://test-minimal-001-keycloak:8180
+      - name: REACT_APP_KEYCLOAK_REALM
+        value: fhir-healthcare
+      - name: REACT_APP_KEYCLOAK_CLIENT_ID
+        value: fhir-dashboard
+
+      - name: REACT_APP_WEBMETHODS_ENABLED
+        value: "true"
+
+# Metering Collector patches
 - target:
     kind: Deployment
     name: metering-collector
-  patch: "- op: replace\n  path: /spec/template/spec/containers/0/env\n  value:\n\
-    \  - name: METERING_DOMAIN\n    value: \"https://xpm.apps.cluster.local\"\n  -\
-    \ name: METERING_TOKEN\n    valueFrom:\n      secretKeyRef:\n        name: metering-credentials\n\
-    \        key: metering-token\n        optional: true\n  - name: PRODUCT_ID\n \
-    \   value: \"sccat-fhir-healthcare\"\n  - name: INSTANCE_ID\n    value: \"test-minimal-001\"\
-    \n  - name: SUBACCOUNT_ID\n    valueFrom:\n      secretKeyRef:\n        name:\
-    \ metering-credentials\n        key: subaccount-id\n        optional: true\n \
-    \ - name: FHIR_SERVER_URL\n    value: \"http://test-minimal-001-fhir:8080\"\n\
-    \  - name: POSTGRES_HOST\n    value: \"test-minimal-001-postgres\"\n  - name:\
-    \ POSTGRES_PORT\n    value: \"5432\"\n  - name: POSTGRES_DB\n    valueFrom:\n\
-    \      secretKeyRef:\n        name: fhir-minimal-secret\n        key: postgres-db\n\
-    \  - name: POSTGRES_USER\n    valueFrom:\n      secretKeyRef:\n        name: fhir-minimal-secret\n\
-    \        key: postgres-user\n  - name: POSTGRES_PASSWORD\n    valueFrom:\n   \
-    \   secretKeyRef:\n        name: fhir-minimal-secret\n        key: postgres-password\n\
-    \  - name: COLLECTION_INTERVAL\n    value: \"3600000\"\n  - name: SUBMISSION_INTERVAL\n\
-    \    value: \"3600000\""
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/env
+      value:
+      - name: METERING_DOMAIN
+        value: "https://xpm.apps.cluster.local"
+      - name: METERING_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: metering-credentials
+            key: metering-token
+            optional: true
+      - name: PRODUCT_ID
+        value: "sccat-fhir-healthcare"
+      - name: INSTANCE_ID
+        value: "test-minimal-001"
+      - name: SUBACCOUNT_ID
+        valueFrom:
+          secretKeyRef:
+            name: metering-credentials
+            key: subaccount-id
+            optional: true
+      - name: FHIR_SERVER_URL
+        value: "http://test-minimal-001-fhir:8080"
+      - name: POSTGRES_HOST
+        value: "test-minimal-001-postgres"
+      - name: POSTGRES_PORT
+        value: "5432"
+      - name: POSTGRES_DB
+        valueFrom:
+          secretKeyRef:
+            name: fhir-minimal-secret
+            key: postgres-db
+      - name: POSTGRES_USER
+        valueFrom:
+          secretKeyRef:
+            name: fhir-minimal-secret
+            key: postgres-user
+      - name: POSTGRES_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: fhir-minimal-secret
+            key: postgres-password
+      - name: COLLECTION_INTERVAL
+        value: "3600000"
+      - name: SUBMISSION_INTERVAL
+        value: "3600000"
+
+
+# Keycloak Deployment patches
 - target:
     kind: Deployment
     name: keycloak
-  patch: "- op: replace\n  path: /spec/template/spec/containers/0/env\n  value:\n\
-    \  - name: KEYCLOAK_ADMIN\n    valueFrom:\n      secretKeyRef:\n        name:\
-    \ keycloak-minimal-secret\n        key: admin-user\n  - name: KEYCLOAK_ADMIN_PASSWORD\n\
-    \    valueFrom:\n      secretKeyRef:\n        name: keycloak-minimal-secret\n\
-    \        key: admin-password\n  - name: KC_DB\n    value: postgres\n  - name:\
-    \ KC_DB_URL\n    value: jdbc:postgresql://test-minimal-001-postgres:5432/keycloakdb\n\
-    \  - name: KC_DB_USERNAME\n    valueFrom:\n      secretKeyRef:\n        name:\
-    \ keycloak-minimal-secret\n        key: db-user\n        optional: true\n  - name:\
-    \ KC_DB_PASSWORD\n    valueFrom:\n      secretKeyRef:\n        name: keycloak-minimal-secret\n\
-    \        key: db-password\n        optional: true\n  - name: KC_HEALTH_ENABLED\n\
-    \    value: \"true\"\n  - name: KC_METRICS_ENABLED\n    value: \"true\"\n  - name:\
-    \ KC_LOG_LEVEL\n    value: INFO\n  - name: JAVA_OPTS_APPEND\n    value: \"-Djava.net.preferIPv4Stack=true\
-    \ -Xms512m -Xmx1024m\""
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/env
+      value:
+      - name: KEYCLOAK_ADMIN
+        valueFrom:
+          secretKeyRef:
+            name: keycloak-minimal-secret
+            key: admin-user
+      - name: KEYCLOAK_ADMIN_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: keycloak-minimal-secret
+            key: admin-password
+      - name: KC_DB
+        value: postgres
+      - name: KC_DB_URL
+        value: jdbc:postgresql://test-minimal-001-postgres:5432/keycloakdb
+      - name: KC_DB_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: keycloak-minimal-secret
+            key: db-user
+            optional: true
+      - name: KC_DB_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: keycloak-minimal-secret
+            key: db-password
+            optional: true
+      - name: KC_HEALTH_ENABLED
+        value: "true"
+      - name: KC_METRICS_ENABLED
+        value: "true"
+      - name: KC_LOG_LEVEL
+        value: INFO
+      - name: JAVA_OPTS_APPEND
+        value: "-Djava.net.preferIPv4Stack=true -Xms512m -Xmx1024m"
+
+
+# ConfigMap patches
 - target:
     kind: ConfigMap
     name: fhir-config
-  patch: "- op: replace\n  path: /data/fhir.version\n  value: R5\n- op: replace\n\
-    \  path: /data/validation.enabled\n  value: \"true\"\n- op: replace\n  path: /data/narrative.enabled\n\
-    \  value: \"true\""
+  patch: |-
+    - op: replace
+      path: /data/fhir.version
+      value: R5
+    - op: replace
+      path: /data/validation.enabled
+      value: "true"
+    - op: replace
+      path: /data/narrative.enabled
+      value: "true"
+    - op: replace
+      path: /data/postgres-host
+      value: fhir-postgres
+
